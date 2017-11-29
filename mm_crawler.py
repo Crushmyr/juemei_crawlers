@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 
 
-import re
-import os
 import requests
 import urllib
+import sys
+import re
+import os
 from docopt import docopt
 
 
@@ -63,11 +64,13 @@ Example:
             os.mkdir(path)
         except Exception as e:
             print('请输入正确的目录路径')
+            sys.exit()
 
     try:
         limit = int(arguments['-l'])
     except Exception as e:
         print('-l 后面的参数必须是数字')
+        sys.exit()
 
     start_url = 'http://www.juemei.com/mm/'
     url_to_scan_patt = r'/mm/[^"\']+'
@@ -80,9 +83,12 @@ Example:
     url_to_scan_lst_temp, img_to_down_lst_temp = scan_url(start_url,
                                                           url_to_scan_patt,
                                                           img_to_down_patt)
-    have_new_url_to_scan = True
-    while have_new_url_to_scan:
-        have_new_url_to_scan = False
+
+    have_url_to_scan = True
+    have_img_to_down = True
+
+    while have_url_to_scan and have_img_to_down:
+        have_url_to_scan = False
         url_to_scan_lst = url_to_scan_lst_temp
         img_to_down_lst = img_to_down_lst_temp
         url_to_scan_lst_temp = []
@@ -90,7 +96,7 @@ Example:
 
         for url_item in url_to_scan_lst:
             if url_item not in url_to_scan_set:
-                have_new_url_to_scan = True
+                have_url_to_scan = True
                 url_to_scan_set.add(url_item)
                 a, b = scan_url(url_item, url_to_scan_patt, img_to_down_patt)
                 for i in a:
@@ -102,9 +108,9 @@ Example:
             if img_item not in img_to_down_set:
                 down_img(img_item, path)
                 img_to_down_set.add(img_item)
-
-        if len(img_to_down_set) >= limit:
-            break
+            if len(img_to_down_set) >= limit:
+                have_img_to_down = False
+                break
 
 
 if __name__ == '__main__':
