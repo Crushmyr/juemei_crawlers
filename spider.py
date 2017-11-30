@@ -11,8 +11,6 @@ from config import *
 
 URL_TO_SCAN_SET = set()
 IMG_TO_DOWN_SET = set()
-HAVE_URL_TO_SCAN = True
-HAVE_IMG_TO_DOWN = True
 
 
 # 线程池类
@@ -23,6 +21,7 @@ class ThreadPool(object):
         self.threads = []
         self.thread_num = self.args['-n']
         self.success_num = 0
+        self.running_num = 0
         self.init_pool()
 
     # 启动线程
@@ -50,7 +49,17 @@ class ThreadPool(object):
     def increase_success_num(self):
         self.success_num += 1
 
-    # 开始工作
+    def get_running_num(self):
+        return self.running_num
+
+    def increase_running_num(self):
+        self.running_num += 1
+
+    def decrease_running_num(self):
+        self.running_num -= 1
+
+
+# 开始工作
     def start_job(self):
         for job in self.threads:
             job.start()
@@ -105,13 +114,12 @@ class DownloadImageThread(threading.Thread):
             return False
 
     def run(self):
-        global HAVE_URL_TO_SCAN
-        global HAVE_IMG_TO_DOWN
         global URL_TO_SCAN_SET
         global IMG_TO_DOWN_SET
-        while HAVE_URL_TO_SCAN and HAVE_IMG_TO_DOWN:
+        while True:
             try:
                 func, url = self.thread_pool.get_job()
+                self.thread_pool.increase_running_num()
                 # if not url.endswith('.jpg'):
                 if func is DownloadImageThread.scan_url:
                     url_to_scan_lst, img_to_down_lst = self.scan_url(url)
@@ -129,13 +137,19 @@ class DownloadImageThread(threading.Thread):
                                 DownloadImageThread.down_img, img_item)
                 elif func is DownloadImageThread.down_img:
                     success_num = self.thread_pool.get_success_num()
+                    # 判断成功下载的个数有没有超出限制量
                     if self.limit and success_num >= self.limit:
-                        HAVE_IMG_TO_DOWN = False
+                        while self.thread_pool.get_running_num() >= 0:
+                            self.thread_pool.decrease_running_num()
                         return None
                     success = self.down_img(url)
                     if success:
                         self.thread_pool.increase_success_num()
+                self.thread_pool.decrease_running_num()
                 self.thread_pool.job_done()
+            except queue.Empty:
+                if self.thread_pool.get_running_num() <= 0:
+                    break
             except Exception as e:
                 print(e)
                 break
