@@ -58,8 +58,7 @@ class ThreadPool(object):
     def decrease_running_num(self):
         self.running_num -= 1
 
-
-# 开始工作
+    # 开始工作
     def start_job(self):
         for job in self.threads:
             job.start()
